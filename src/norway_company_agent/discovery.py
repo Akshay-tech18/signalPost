@@ -16,12 +16,17 @@ BLOCKED_DISCOVERY_HOSTS = {
 GENERIC_NAME_TOKENS = {"as", "asa", "ans", "da", "enk", "sa", "nuf", "company", "norge", "norway", "gruppen", "group"}
 
 
-def build_company_search_query(profile: dict[str, Any]) -> str:
+def build_company_search_query(profile: dict[str, Any], *, mode: str = "legacy") -> str:
     name = " ".join(str(profile.get("name") or "").split())
     org = re.sub(r"\D", "", str(profile.get("organisation_number") or ""))
     municipality = " ".join(str(profile.get("municipality") or "").split())
     if not name or not org:
         raise ValueError("Company discovery requires a legal name and organisation number")
+    if mode == "clean":
+        clean_name = re.sub(r"\b(AS|ASA|ANS|DA|ENK|NUF|SA|BA)\b", "", name, flags=re.I).strip()
+        clean_name = " ".join(clean_name.split())
+        loc = f" {municipality}" if municipality else ""
+        return f"{clean_name}{loc} Norway"
     location = f" {municipality}" if municipality else ""
     return f'"{name}" {org}{location}'
 
@@ -71,6 +76,11 @@ def score_search_candidate(profile: dict[str, Any], result: dict[str, Any]) -> d
     all_name_tokens = bool(name_tokens and set(name_tokens).issubset(evidence_tokens))
     all_name_tokens_in_title = bool(name_tokens and set(name_tokens).issubset(set(title_tokens)))
     name_in_host = bool(name_compact and name_compact in host_compact)
+    if not name_in_host and name_tokens:
+        long_tokens = [t for t in name_tokens if len(t) >= 3]
+        matching_tokens = [t for t in long_tokens if t in host_compact]
+        if len(matching_tokens) >= 2 or (len(long_tokens) >= 1 and len(matching_tokens) / len(long_tokens) >= 0.5):
+            name_in_host = True
     municipality_match = bool(municipality_tokens and municipality_tokens <= set(snippet_tokens))
     score = 0.0
     reasons = []

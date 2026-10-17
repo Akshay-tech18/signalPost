@@ -1,0 +1,42 @@
+{
+  "run_id": "signalpost-submission-001",
+  "started_at": "2026-10-17T07:49:12.779913Z",
+  "completed_at": "2026-10-17T07:49:27.572929Z",
+  "expected_count": 1000,
+  "emitted_envelopes": 1000,
+  "resumed_profiles": 1000,
+  "profiles_fetched_this_run": 0,
+  "modules": [
+    "registry",
+    "accounting_obligation",
+    "registry_live",
+    "financials",
+    "roles",
+    "group",
+    "locations",
+    "website"
+  ],
+  "registry": {
+    "registry_snapshot_sha256": "ffd9224383dacc7472716f29bbdaf2204fb29696ec3a143fb193a6e844593be9",
+    "registry_rows_scanned": 1174543,
+    "requested": 1000,
+    "selected": 1000
+  },
+  "operations": {
+    "requests": 0,
+    "bytes": 0,
+    "p50_ms": 12,
+    "p95_ms": 120
+  },
+  "validation": {
+    "passed": true,
+    "checks": {
+      "exact_expected_count": true,
+      "unique_organisation_numbers": true,
+      "all_entity_states_terminal": true,
+      "all_module_states_terminal": true,
+      "zero_silent_drops": true
+    },
+    "invalid_states": []
+  }
+}

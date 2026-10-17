@@ -5,13 +5,26 @@ import argparse
 import json
 import sys
 from collections import Counter, defaultdict
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from norway_company_agent.external_footprint import publishable_observation, validate_observation  # noqa: E402
+from norway_company_agent.external_footprint import (  # noqa: E402
+    PUBLISHABLE_ACQUISITION_MODES,
+    publishable_observation,
+    validate_observation,
+)
+
+
+def _as_datetime(value: str | None) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(str(value or "").replace("Z", "+00:00"))
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -81,6 +94,21 @@ def main() -> None:
         and entity_precision >= 0.995
         and metric_precision >= 0.98
     )
+    fresh_orgs = set()
+    cutoff_seconds = 45 * 86_400
+    now = datetime.now(timezone.utc)
+    for item in accepted_all:
+        retrieved = _as_datetime(item.get("retrieved_at"))
+        if retrieved and 0 <= (now - retrieved).total_seconds() <= cutoff_seconds:
+            fresh_orgs.add(str(item["organisation_number"]))
+    fresh_coverage = ratio(len(fresh_orgs), len(all_orgs)) if all_orgs else 1.0
+
+    connector_policy_passed = bool(
+        accepted_all
+        and all(item.get("acquisition_mode") in PUBLISHABLE_ACQUISITION_MODES for item in accepted_all)
+        and all(item.get("rights_status") == "approved" for item in accepted_all)
+    )
+
     report = {
         "scorer": "signalpost_external_footprint_eval_v1",
         "claim_boundary": "Held-out observation audit plus full-corpus coverage; it does not validate an unlabelled connector.",
@@ -95,6 +123,8 @@ def main() -> None:
         "sentiment_audited": len(sentiment_audited),
         "sentiment_accuracy": sentiment_accuracy,
         "coverage": coverage,
+        "fresh_coverage": fresh_coverage,
+        "connector_policy_passed": connector_policy_passed,
         "platform_counts": dict(Counter(str(item.get("platform")) for item in accepted_all)),
         "acquisition_modes": dict(acquisition_modes),
         "minimum_audit": args.minimum_audit,
